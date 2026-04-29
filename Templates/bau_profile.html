@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% set active_page = "bau" %}
+
+{% block title %}BAU Emission Profile{% endblock %}
+
+{% block content %}
+{% set b  = data.basic %}
+{% set gt = data.grand_totals %}
+{% set st = data.sector_totals %}
+{% set pop = b.get('population', 1) or 1 %}
+
+<!-- Page header -->
+<div class="page-header">
+  <h1 class="page-title">BAU Emission Profile</h1>
+  <p class="page-subtitle">Business-as-Usual projections by sector — {{ b.get('base_year',2025) }} to {{ b.get('target_year',2050) }}</p>
+  <div class="page-meta">
+    <span class="meta-chip"><strong>{{ b.get('state','—') }}</strong> · {{ b.get('tier','—') }}</span>
+    <span class="meta-chip">Pop <strong>{{ "{:,.0f}".format(pop) }}</strong></span>
+    <span class="meta-chip">Area <strong>{{ b.get('area_sqkm',0) }} km²</strong></span>
+    <span class="meta-chip">Climate <strong>{{ b.get('climate_zone','—') }}</strong></span>
+    <span class="meta-chip">GDP <strong>₹{{ "{:,.0f}".format(b.get('gdp',0)) }} Cr</strong></span>
+  </div>
+</div>
+
+<!-- KPI strip -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Base Year Total</div>
+    <div class="kpi-value">{{ "%.2f"|format(gt.base/1e6) }}</div>
+    <div class="kpi-unit">MtCO₂e · {{ b.get('base_year',2025) }}</div>
+  </div>
+  <div class="kpi-card amber">
+    <div class="kpi-label">BAU 2030</div>
+    <div class="kpi-value">{{ "%.2f"|format(gt.y2030/1e6) }}</div>
+    <div class="kpi-unit">MtCO₂e</div>
+    <div class="kpi-change up">▲ {{ "%.1f"|format((gt.y2030 - gt.base)/gt.base*100 if gt.base else 0) }}% vs base</div>
+  </div>
+  <div class="kpi-card blue">
+    <div class="kpi-label">BAU 2040</div>
+    <div class="kpi-value">{{ "%.2f"|format(gt.y2040/1e6) }}</div>
+    <div class="kpi-unit">MtCO₂e</div>
+    <div class="kpi-change up">▲ {{ "%.1f"|format((gt.y2040 - gt.base)/gt.base*100 if gt.base else 0) }}% vs base</div>
+  </div>
+  <div class="kpi-card red">
+    <div class="kpi-label">BAU {{ b.get('target_year',2050) }}</div>
+    <div class="kpi-value">{{ "%.2f"|format(gt.y2050/1e6) }}</div>
+    <div class="kpi-unit">MtCO₂e</div>
+    <div class="kpi-change up">▲ {{ "%.1f"|format((gt.y2050 - gt.base)/gt.base*100 if gt.base else 0) }}% vs base</div>
+  </div>
+  <div class="kpi-card purple">
+    <div class="kpi-label">Per Capita (Base)</div>
+    <div class="kpi-value">{{ "%.2f"|format(gt.base/pop) }}</div>
+    <div class="kpi-unit">tCO₂e/person</div>
+  </div>
+</div>
+
+<!-- Row 1: Pie + Stacked bar -->
+<div class="grid-2" style="margin-bottom:1.25rem;">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Base Year Sector Share</div>
+        <div class="card-subtitle">Proportional contribution at {{ b.get('base_year',2025) }}</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap" id="chart-pie"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">BAU Stacked Emissions by Year</div>
+        <div class="card-subtitle">Subsector breakdown across milestones</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap" id="chart-stacked"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 2: Trend + Per capita -->
+<div class="grid-2" style="margin-bottom:1.25rem;">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Sector Emission Trajectories</div>
+        <div class="card-subtitle">BAU growth by sector over time</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap" id="chart-trend"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Per Capita BAU Emissions</div>
+        <div class="card-subtitle">tCO₂e per person across milestones</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap" id="chart-percapita"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Detailed data table -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Detailed BAU Emission Table</div>
+      <div class="card-subtitle">All sectors and subsectors · tCO₂e</div>
+    </div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Sector</th>
+            <th>Subsector</th>
+            <th class="right">Base {{ b.get('base_year',2025) }}</th>
+            <th class="right">2030</th>
+            <th class="right">2040</th>
+            <th class="right">{{ b.get('target_year',2050) }}</th>
+            <th class="right">Growth to {{ b.get('target_year',2050) }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set current_sector = namespace(val='') %}
+          {% for row in data.dashboard %}
+            {% if row.sector != current_sector.val %}
+              {% set current_sector.val = row.sector %}
+              <tr class="sector-row">
+                <td colspan="7">{{ row.sector }}</td>
+              </tr>
+            {% endif %}
+            {% set growth = ((row.y2050 - row.base)/row.base*100) if row.base else 0 %}
+            <tr>
+              <td></td>
+              <td class="subsector-label">{{ row.subsector }}</td>
+              <td class="right">{{ "{:,.0f}".format(row.base) }}</td>
+              <td class="right">{{ "{:,.0f}".format(row.y2030) }}</td>
+              <td class="right">{{ "{:,.0f}".format(row.y2040) }}</td>
+              <td class="right">{{ "{:,.0f}".format(row.y2050) }}</td>
+              <td class="right {% if growth > 0 %}growth-pos{% else %}growth-neg{% endif %}">
+                {{ "%.1f"|format(growth) }}%
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2"><strong>Grand Total</strong></td>
+            <td class="right"><strong>{{ "{:,.0f}".format(gt.base) }}</strong></td>
+            <td class="right"><strong>{{ "{:,.0f}".format(gt.y2030) }}</strong></td>
+            <td class="right"><strong>{{ "{:,.0f}".format(gt.y2040) }}</strong></td>
+            <td class="right"><strong>{{ "{:,.0f}".format(gt.y2050) }}</strong></td>
+            <td class="right growth-pos">
+              {{ "%.1f"|format((gt.y2050-gt.base)/gt.base*100 if gt.base else 0) }}%
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Year table from basic info -->
+<div class="section-label" style="margin-top:1.5rem;">Base &amp; Target Year Parameters</div>
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th class="right">Value</th>
+            <th class="right">Pop Growth Rate</th>
+            <th class="right">GDP Growth Rate</th>
+            <th class="right">Growth Factor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for yt in b.get('year_table', []) %}
+          <tr>
+            <td><strong>{{ yt.label }}</strong></td>
+            <td class="right">{{ yt.year }}</td>
+            <td class="right">{{ "%.1f"|format(yt.pop_growth*100) }}%</td>
+            <td class="right">{{ "%.1f"|format(yt.gdp_growth*100) }}%</td>
+            <td class="right">{{ "%.2f"|format(yt.growth_factor*100) }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const sectorTotals = {{ data.sector_totals | tojson }};
+const dashboard    = {{ data.dashboard | tojson }};
+const population   = {{ data.basic.get('population', 1) or 1 }};
+
+drawSectorPie('chart-pie',       sectorTotals);
+drawSectorBar('chart-stacked',   dashboard, []);
+drawSectorTrend('chart-trend',   sectorTotals, []);
+drawPerCapita('chart-percapita', dashboard, population);
+</script>
+{% endblock %}
