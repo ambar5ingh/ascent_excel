@@ -212,7 +212,7 @@ def parse_dashboard_bau(wb):
 
 def parse_target_setting(wb):
     """
-    Parse 'Target Setting ' sheet.
+    Parse 'Target Setting' sheet.
     Returns: {year: {bau, target_pct, target_abs, allowable}, ...}
     """
     rows = ws_rows(wb, "Target Setting ")
