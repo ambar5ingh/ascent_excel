@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ASCENT GHG Viewer — Upload</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<div class="upload-page">
+  <div class="upload-card">
+    <div class="upload-logo">A</div>
+    <h1 class="upload-title">ASCENT GHG Viewer</h1>
+    <p class="upload-sub">
+      Upload your WRI India ASCENT Excel file to generate interactive BAU profiles,
+      target trajectories, and emission reduction analysis.
+    </p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="flash-msg {{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form id="uploadForm" method="POST" action="{{ url_for('handle_upload') }}" enctype="multipart/form-data">
+      <div class="upload-drop" id="dropZone">
+        <input type="file" name="file" id="fileInput" accept=".xlsx,.xlsm"/>
+        <div class="upload-icon">📊</div>
+        <div class="upload-drop-text">Drop ASCENT file here or click to browse</div>
+        <div class="upload-drop-hint">Supports .xlsx and .xlsm — WRI India ASCENT Beta</div>
+        <div class="upload-filename" id="fileName"></div>
+      </div>
+
+      <button type="submit" class="btn-upload" id="submitBtn" disabled>
+        Parse &amp; Generate Reports
+      </button>
+    </form>
+
+    <div class="upload-footer">
+      WRI India · ASCENT GHG Scenario Planning · IPCC 2019 GPC Framework · AR6 GWP
+    </div>
+  </div>
+
+  <!-- Feature tiles below card -->
+  <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:.75rem; max-width:520px; width:100%; margin-top:1.5rem;">
+    {% for icon, label in [('📈','BAU Emission Profile'),('🎯','Target Setting'),('📊','Dashboard – BAU'),('📉','Emission Reduction')] %}
+    <div style="background:rgba(255,255,255,.08); border-radius:10px; padding:.75rem .5rem; text-align:center; border:1px solid rgba(255,255,255,.12);">
+      <div style="font-size:1.5rem; margin-bottom:.3rem;">{{ icon }}</div>
+      <div style="font-size:.68rem; color:rgba(255,255,255,.7); font-weight:600; line-height:1.3;">{{ label }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+</body>
+</html>
