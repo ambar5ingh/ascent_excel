@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% set active_page = "er" %}
+
+{% block title %}Emission Reduction Graph{% endblock %}
+
+{% block content %}
+{% set b  = data.basic %}
+{% set tl = data.er_timeline %}
+{% set er = data.er_subsectors %}
+
+<div class="page-header">
+  <h1 class="page-title">Emission Reduction — Graph</h1>
+  <p class="page-subtitle">Scenario comparison: BAU · E&amp;P · High Ambition · Target</p>
+  <div class="page-meta">
+    <span class="meta-chip">Base <strong>{{ b.get('base_year',2025) }}</strong></span>
+    <span class="meta-chip">Target <strong>{{ b.get('target_year',2050) }}</strong></span>
+    {% if tl.get('BAU') %}
+    <span class="meta-chip">BAU 2050 <strong>{{ "%.2f"|format(tl['BAU'][3]) }} Mt</strong></span>
+    {% endif %}
+    {% if tl.get('Target') %}
+    <span class="meta-chip">Target 2050 <strong>{{ "%.2f"|format(tl['Target'][3]) }} Mt</strong></span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Scenario KPI strip -->
+<div class="kpi-grid">
+  {% if tl.get('BAU') %}
+  <div class="kpi-card red">
+    <div class="kpi-label">BAU — 2050</div>
+    <div class="kpi-value">{{ "%.2f"|format(tl['BAU'][3]) }}</div>
+    <div class="kpi-unit">MtCO₂e</div>
+  </div>
+  {% endif %}
+  {% if tl.get('E&P') %}
+  <div class="kpi-card blue">
+    <div class="kpi-label">E&amp;P — 2050</div>
+    <div class="kpi-value">{{ "%.2f"|format(tl['E&P'][3]) }}</div>
+    <div class="kpi-unit">MtCO₂e</div>
+    {% if tl.get('BAU') and tl['BAU'][3] %}
+    <div class="kpi-change down">▼ {{ "%.1f"|format((tl['BAU'][3]-tl['E&P'][3])/tl['BAU'][3]*100) }}% vs BAU</div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if tl.get('High - Ambition') %}
+  <div class="kpi-card purple">
+    <div class="kpi-label">High Ambition — 2050</div>
+    <div class="kpi-value">{{ "%.2f"|format(tl['High - Ambition'][3]) }}</div>
+    <div class="kpi-unit">MtCO₂e</div>
+    {% if tl.get('BAU') and tl['BAU'][3] %}
+    <div class="kpi-change down">▼ {{ "%.1f"|format((tl['BAU'][3]-tl['High - Ambition'][3])/tl['BAU'][3]*100) }}% vs BAU</div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if tl.get('Target') %}
+  <div class="kpi-card">
+    <div class="kpi-label">Target — 2050</div>
+    <div class="kpi-value">{{ "%.2f"|format(tl['Target'][3]) }}</div>
+    <div class="kpi-unit">MtCO₂e</div>
+    {% if tl.get('BAU') and tl['BAU'][3] %}
+    <div class="kpi-change down">▼ {{ "%.1f"|format((tl['BAU'][3]-tl['Target'][3])/tl['BAU'][3]*100) }}% vs BAU</div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Main timeline chart -->
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Emission Reduction Scenario Trajectories</div>
+      <div class="card-subtitle">BAU, E&amp;P, High Ambition &amp; Target pathways — MtCO₂e</div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#e74c3c;"></div> BAU</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2980b9;"></div> E&amp;P Scenario</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8e44ad;"></div> High Ambition</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#27ae60;"></div> Target</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="chart-wrap xl" id="chart-timeline"></div>
+  </div>
+</div>
+
+<!-- Year-specific sector breakdown with tabs -->
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Sector Reduction by Milestone Year</div>
+      <div class="card-subtitle">BAU · E&amp;P · Ambitious reductions by sector</div>
+    </div>
+    <div class="year-tabs">
+      <button class="year-tab active" onclick="switchYear('2030',this)">2030</button>
+      <button class="year-tab" onclick="switchYear('2040',this)">2040</button>
+      <button class="year-tab" onclick="switchYear('2050',this)">2050</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="chart-wrap tall" id="chart-sector-bar"></div>
+  </div>
+</div>
+
+<!-- Reduction gap chart -->
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Emission Reduction Gap by Subsector</div>
+      <div class="card-subtitle">Gap between BAU and Ambitious scenario (2030 vs 2050)</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="chart-wrap xl" id="chart-gap"></div>
+  </div>
+</div>
+
+<!-- Detailed emission reduction table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Detailed Emission Reduction Table</div>
+    <div class="card-subtitle">All subsectors — BAU, E&amp;P, and Ambitious scenario values (MtCO₂e)</div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th rowspan="2">Sector</th>
+            <th rowspan="2">Subsector</th>
+            <th rowspan="2" class="right">Base</th>
+            <th colspan="3" style="text-align:center; border-left:1px solid rgba(255,255,255,.2);">2030</th>
+            <th colspan="3" style="text-align:center; border-left:1px solid rgba(255,255,255,.2);">2040</th>
+            <th colspan="3" style="text-align:center; border-left:1px solid rgba(255,255,255,.2);">2050</th>
+          </tr>
+          <tr>
+            <th class="right">BAU</th><th class="right">E&amp;P</th><th class="right">Ambitious</th>
+            <th class="right">BAU</th><th class="right">E&amp;P</th><th class="right">Ambitious</th>
+            <th class="right">BAU</th><th class="right">E&amp;P</th><th class="right">Ambitious</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set cur_sector = namespace(val='') %}
+          {% for row in er %}
+          {% if row.sector != cur_sector.val %}
+            {% set cur_sector.val = row.sector %}
+            <tr class="sector-row"><td colspan="12">{{ row.sector }}</td></tr>
+          {% endif %}
+          <tr>
+            <td></td>
+            <td class="subsector-label">{{ row.subsector }}</td>
+            <td class="right">{{ "%.2f"|format(row.base/1e6) }}</td>
+            <td class="right">{{ "%.2f"|format(row.bau_2030/1e6) }}</td>
+            <td class="right" style="color:#2980b9;">{{ "%.2f"|format(row.ep_abs_2030/1e6) }}</td>
+            <td class="right" style="color:#8e44ad;">{{ "%.2f"|format(row.amb_abs_2030/1e6) }}</td>
+            <td class="right">{{ "%.2f"|format(row.bau_2040/1e6) }}</td>
+            <td class="right" style="color:#2980b9;">{{ "%.2f"|format(row.ep_abs_2040/1e6) }}</td>
+            <td class="right" style="color:#8e44ad;">{{ "%.2f"|format(row.amb_abs_2040/1e6) }}</td>
+            <td class="right">{{ "%.2f"|format(row.bau_2050/1e6) }}</td>
+            <td class="right" style="color:#2980b9;">{{ "%.2f"|format(row.ep_abs_2050/1e6) }}</td>
+            <td class="right" style="color:#8e44ad;">{{ "%.2f"|format(row.amb_abs_2050/1e6) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const erTimeline   = {{ data.er_timeline   | tojson }};
+const erSubsectors = {{ data.er_subsectors | tojson }};
+
+drawERTimeline('chart-timeline', erTimeline);
+drawERSectorBar('chart-sector-bar', erSubsectors, '2030');
+drawERGapChart('chart-gap', erSubsectors);
+
+function switchYear(yr, btn) {
+  document.querySelectorAll('.year-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  drawERSectorBar('chart-sector-bar', erSubsectors, yr);
+}
+</script>
+{% endblock %}
