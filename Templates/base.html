@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}ASCENT GHG Viewer{% endblock %} — WRI India</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── Loading overlay ── -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<!-- ── Topbar ── -->
+<header class="topbar">
+  <a href="{{ url_for('upload') }}" class="topbar-brand">
+    <div class="topbar-logo">A</div>
+    <div>
+      <div class="topbar-name">ASCENT</div>
+      <div class="topbar-sub">WRI India · GHG Scenario Planning</div>
+    </div>
+  </a>
+  <div class="topbar-spacer"></div>
+  {% if data %}
+    <span class="topbar-city">
+      {{ data.basic.get('city_name') or data.basic.get('state','') }}
+      · {{ data.basic.get('base_year', 2025) }}–{{ data.basic.get('target_year', 2050) }}
+    </span>
+  {% endif %}
+  <span class="topbar-badge">IPCC 2019 · AR6 GWP</span>
+</header>
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="nav-upload">
+    <a href="{{ url_for('upload') }}">⬆ New Upload</a>
+  </div>
+  <div style="margin-top:1.25rem">
+    <div class="sidebar-section">Analysis Pages</div>
+    <a href="{{ url_for('bau_profile') }}"        class="nav-link {% if active_page=='bau' %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      BAU Emission Profile
+    </a>
+    <a href="{{ url_for('target_setting') }}"     class="nav-link {% if active_page=='target' %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      Target Setting
+    </a>
+    <a href="{{ url_for('dashboard_bau') }}"      class="nav-link {% if active_page=='dashboard' %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Dashboard — BAU
+    </a>
+    <a href="{{ url_for('emission_reduction') }}" class="nav-link {% if active_page=='er' %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Emission Reduction
+    </a>
+  </div>
+
+  {% if data %}
+  <div style="margin-top:2rem; padding:0 1rem;">
+    <div class="sidebar-section">City Info</div>
+    <div style="font-size:0.74rem; color:rgba(255,255,255,.55); line-height:1.8; padding:0 0.25rem;">
+      <div><strong style="color:rgba(255,255,255,.8)">State</strong> {{ data.basic.get('state','—') }}</div>
+      <div><strong style="color:rgba(255,255,255,.8)">Tier</strong>  {{ data.basic.get('tier','—') }}</div>
+      <div><strong style="color:rgba(255,255,255,.8)">Pop</strong>   {{ "{:,.0f}".format(data.basic.get('population',0)) }}</div>
+      <div><strong style="color:rgba(255,255,255,.8)">Area</strong>  {{ data.basic.get('area_sqkm',0) }} km²</div>
+      <div><strong style="color:rgba(255,255,255,.8)">Base</strong>  {{ data.basic.get('base_year',2025) }}</div>
+      <div><strong style="color:rgba(255,255,255,.8)">Target</strong>{{ data.basic.get('target_year',2050) }}</div>
+    </div>
+  </div>
+  {% endif %}
+</nav>
+
+<!-- ── Main content ── -->
+<main class="main">
+  {% block content %}{% endblock %}
+</main>
+
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
