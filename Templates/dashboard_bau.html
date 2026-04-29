@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% set active_page = "dashboard" %}
+
+{% block title %}Dashboard — BAU{% endblock %}
+
+{% block content %}
+{% set b  = data.basic %}
+{% set gt = data.grand_totals %}
+{% set st = data.sector_totals %}
+
+<div class="page-header">
+  <h1 class="page-title">Dashboard — BAU</h1>
+  <p class="page-subtitle">Comprehensive Business-as-Usual overview for {{ b.get('state','—') }}</p>
+  <div class="page-meta">
+    <span class="meta-chip">Base <strong>{{ b.get('base_year',2025) }}</strong></span>
+    <span class="meta-chip">Target <strong>{{ b.get('target_year',2050) }}</strong></span>
+    <span class="meta-chip">Total Base <strong>{{ "%.2f"|format(gt.base/1e6) }} MtCO₂e</strong></span>
+    <span class="meta-chip">Total {{ b.get('target_year',2050) }} <strong>{{ "%.2f"|format(gt.y2050/1e6) }} MtCO₂e</strong></span>
+  </div>
+</div>
+
+<!-- Sector KPI tiles -->
+<div class="section-label">Sector Totals (Base Year → {{ b.get('target_year',2050) }})</div>
+<div class="kpi-grid">
+  {% for sector, vals in st.items() %}
+  <div class="kpi-card {% if loop.index%6==1 %}{% elif loop.index%6==2 %}amber{% elif loop.index%6==3 %}blue{% elif loop.index%6==4 %}red{% elif loop.index%6==5 %}purple{% endif %}">
+    <div class="kpi-label">{{ sector }}</div>
+    <div class="kpi-value">{{ "%.2f"|format(vals.base/1e6) }}</div>
+    <div class="kpi-unit">MtCO₂e base</div>
+    <div class="kpi-change up">→ {{ "%.2f"|format(vals.y2050/1e6) }} Mt by {{ b.get('target_year',2050) }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Main charts -->
+<div class="grid-2" style="margin-bottom:1.25rem;">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Sector Comparison — All Milestones</div>
+        <div class="card-subtitle">Grouped bar — MtCO₂e per sector per milestone year</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap tall" id="chart-grouped"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Emissions Flow (Sankey)</div>
+        <div class="card-subtitle">Base year — sector to subsector flow</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap tall" id="chart-sankey"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Sector deep-dive tables -->
+{% set all_sectors = data.dashboard | map(attribute='sector') | unique | list %}
+{% for sector in all_sectors %}
+  {% set sector_rows = data.dashboard | selectattr('sector','equalto',sector) | list %}
+  {% if sector_rows %}
+  <div class="section-label">{{ sector }}</div>
+  <div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-body" style="padding:0;">
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Subsector</th>
+              <th class="right">Base {{ b.get('base_year',2025) }}</th>
+              <th class="right">2030</th>
+              <th class="right">Δ% to 2030</th>
+              <th class="right">2040</th>
+              <th class="right">Δ% to 2040</th>
+              <th class="right">{{ b.get('target_year',2050) }}</th>
+              <th class="right">Δ% to {{ b.get('target_year',2050) }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in sector_rows %}
+            {% set d30 = ((row.y2030-row.base)/row.base*100) if row.base else 0 %}
+            {% set d40 = ((row.y2040-row.base)/row.base*100) if row.base else 0 %}
+            {% set d50 = ((row.y2050-row.base)/row.base*100) if row.base else 0 %}
+            <tr>
+              <td>{{ row.subsector }}</td>
+              <td class="right">{{ "{:,.0f}".format(row.base) }}</td>
+              <td class="right">{{ "{:,.0f}".format(row.y2030) }}</td>
+              <td class="right {% if d30>0 %}growth-pos{% else %}growth-neg{% endif %}">{{ "%.1f"|format(d30) }}%</td>
+              <td class="right">{{ "{:,.0f}".format(row.y2040) }}</td>
+              <td class="right {% if d40>0 %}growth-pos{% else %}growth-neg{% endif %}">{{ "%.1f"|format(d40) }}%</td>
+              <td class="right">{{ "{:,.0f}".format(row.y2050) }}</td>
+              <td class="right {% if d50>0 %}growth-pos{% else %}growth-neg{% endif %}">{{ "%.1f"|format(d50) }}%</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td><strong>Sector Total</strong></td>
+              <td class="right"><strong>{{ "{:,.0f}".format(sector_rows|sum(attribute='base')) }}</strong></td>
+              <td class="right"><strong>{{ "{:,.0f}".format(sector_rows|sum(attribute='y2030')) }}</strong></td>
+              <td class="right"></td>
+              <td class="right"><strong>{{ "{:,.0f}".format(sector_rows|sum(attribute='y2040')) }}</strong></td>
+              <td class="right"></td>
+              <td class="right"><strong>{{ "{:,.0f}".format(sector_rows|sum(attribute='y2050')) }}</strong></td>
+              <td class="right"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+{% endfor %}
+
+<!-- Grand total footer -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Grand Total — All Sectors</div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Sector</th>
+            <th class="right">Base (MtCO₂e)</th>
+            <th class="right">2030 (MtCO₂e)</th>
+            <th class="right">2040 (MtCO₂e)</th>
+            <th class="right">{{ b.get('target_year',2050) }} (MtCO₂e)</th>
+            <th class="right">Share of Base</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sector, vals in st.items() %}
+          {% set share = (vals.base/gt.base*100) if gt.base else 0 %}
+          <tr>
+            <td><strong>{{ sector }}</strong></td>
+            <td class="right">{{ "%.3f"|format(vals.base/1e6) }}</td>
+            <td class="right">{{ "%.3f"|format(vals.y2030/1e6) }}</td>
+            <td class="right">{{ "%.3f"|format(vals.y2040/1e6) }}</td>
+            <td class="right">{{ "%.3f"|format(vals.y2050/1e6) }}</td>
+            <td class="right">
+              <div style="display:flex; align-items:center; gap:.5rem; justify-content:flex-end;">
+                <span>{{ "%.1f"|format(share) }}%</span>
+                <div style="width:60px;" class="progress-bar-wrap">
+                  <div class="progress-bar" style="width:{{ share|min(100) }}%; background:var(--teal);"></div>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td><strong>TOTAL</strong></td>
+            <td class="right"><strong>{{ "%.3f"|format(gt.base/1e6) }}</strong></td>
+            <td class="right"><strong>{{ "%.3f"|format(gt.y2030/1e6) }}</strong></td>
+            <td class="right"><strong>{{ "%.3f"|format(gt.y2040/1e6) }}</strong></td>
+            <td class="right"><strong>{{ "%.3f"|format(gt.y2050/1e6) }}</strong></td>
+            <td class="right"><strong>100.0%</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const sectorTotals = {{ data.sector_totals | tojson }};
+const dashboard    = {{ data.dashboard | tojson }};
+
+drawDashGroupedBar('chart-grouped', sectorTotals);
+drawDashSankey    ('chart-sankey',  dashboard);
+</script>
+{% endblock %}
