@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% set active_page = "target" %}
+
+{% block title %}Target Setting{% endblock %}
+
+{% block content %}
+{% set b  = data.basic %}
+{% set tgt = data.targets %}
+
+<div class="page-header">
+  <h1 class="page-title">Target Setting</h1>
+  <p class="page-subtitle">Allowable emissions and reduction targets across milestone years</p>
+  <div class="page-meta">
+    <span class="meta-chip">Base <strong>{{ b.get('base_year',2025) }}</strong></span>
+    <span class="meta-chip">Interim 1 <strong>{{ b.get('interim1','—') }}</strong></span>
+    <span class="meta-chip">Interim 2 <strong>{{ b.get('interim2','—') }}</strong></span>
+    <span class="meta-chip">Target <strong>{{ b.get('target_year',2050) }}</strong></span>
+  </div>
+</div>
+
+<!-- KPI strip -->
+<div class="kpi-grid">
+  {% for yr in [2025, 2030, 2040, 2050] %}
+    {% if tgt.get(yr|string) or tgt.get(yr) %}
+      {% set t = tgt.get(yr|string) or tgt.get(yr) %}
+      <div class="kpi-card {% if yr==2025 %}{% elif yr==2030 %}amber{% elif yr==2040 %}blue{% else %}red{% endif %}">
+        <div class="kpi-label">{{ yr }} — BAU</div>
+        <div class="kpi-value">{{ "%.2f"|format(t.bau) }}</div>
+        <div class="kpi-unit">MtCO₂e</div>
+        <div class="kpi-change">
+          Allowable: <strong>{{ "%.2f"|format(t.allowable) }} Mt</strong>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+<!-- Charts row -->
+<div class="grid-2" style="margin-bottom:1.25rem;">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">BAU vs Allowable Emissions Trajectory</div>
+        <div class="card-subtitle">Reduction gap across planning horizon</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap tall" id="chart-trajectory"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Allowable Emissions Waterfall</div>
+        <div class="card-subtitle">Change in allowable emissions year-by-year</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap tall" id="chart-waterfall"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Target table -->
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-header">
+    <div class="card-title">Target Setting Detail</div>
+    <div class="card-subtitle">BAU, allowable, and reduction targets for each milestone year</div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th class="right">BAU (MtCO₂e)</th>
+            <th class="right">Target % Reduction</th>
+            <th class="right">Target Abs (Mt)</th>
+            <th class="right">Allowable (MtCO₂e)</th>
+            <th class="right">Reduction Needed (Mt)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for yr in [2025, 2030, 2040, 2050] %}
+            {% set t = tgt.get(yr|string) or tgt.get(yr) or {} %}
+            {% if t %}
+            <tr>
+              <td><strong>{{ yr }}</strong></td>
+              <td class="right">{{ "%.3f"|format(t.bau) }}</td>
+              <td class="right">{{ "%.1f"|format(t.target_pct*100 if t.target_pct < 2 else t.target_pct) }}%</td>
+              <td class="right">{{ "%.3f"|format(t.target_abs) }}</td>
+              <td class="right">{{ "%.3f"|format(t.allowable) }}</td>
+              <td class="right growth-pos">
+                {% set gap = t.bau - t.allowable %}
+                {{ "%.3f"|format(gap) if gap > 0 else "—" }}
+              </td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Per-year target breakdown cards -->
+<div class="section-label">Year-by-Year Target Summary</div>
+<div class="grid-auto">
+  {% for yr in [2030, 2040, 2050] %}
+    {% set t = tgt.get(yr|string) or tgt.get(yr) or {} %}
+    {% if t %}
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">{{ yr }} Targets</div>
+          <div class="card-subtitle">Required reduction from BAU</div>
+        </div>
+        <span class="badge badge-{% if yr==2030 %}amber{% elif yr==2040 %}navy{% else %}red{% endif %}">
+          {{ yr }}
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="target-year-card">
+          <div class="target-stat">
+            <span class="target-stat-label">BAU Emissions</span>
+            <span class="target-stat-val">{{ "%.3f"|format(t.bau) }} MtCO₂e</span>
+          </div>
+          <div class="target-stat">
+            <span class="target-stat-label">Reduction Target</span>
+            <span class="target-stat-val" style="color:#e74c3c;">
+              {{ "%.0f"|format(t.target_abs) }} Mt
+              ({{ "%.0f"|format(t.target_pct*100 if t.target_pct < 2 else t.target_pct) }}%)
+            </span>
+          </div>
+          <div class="target-stat">
+            <span class="target-stat-label">Allowable Emissions</span>
+            <span class="target-stat-val" style="color:#00a896;">{{ "%.3f"|format(t.allowable) }} MtCO₂e</span>
+          </div>
+          <div class="target-stat">
+            <span class="target-stat-label">Gap (BAU – Allowable)</span>
+            <span class="target-stat-val">{{ "%.3f"|format([t.bau - t.allowable, 0]|max) }} Mt</span>
+          </div>
+          <!-- Progress bar: allowable / BAU -->
+          {% set pct_rem = (t.allowable / t.bau * 100) if t.bau else 0 %}
+          <div style="margin-top:.5rem;">
+            <div style="display:flex; justify-content:space-between; font-size:.72rem; color:var(--muted); margin-bottom:.3rem;">
+              <span>Allowable</span>
+              <span>{{ "%.1f"|format(pct_rem) }}% of BAU</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar {% if pct_rem < 50 %}{% else %}amber{% endif %}"
+                   style="width:{{ pct_rem|min(100) }}%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+<!-- Year table from basic info -->
+<div class="section-label" style="margin-top:1.5rem;">Growth Rates Used in BAU Calculation</div>
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th class="right">Year</th>
+            <th class="right">Pop Growth Rate</th>
+            <th class="right">GDP Growth Rate</th>
+            <th class="right">Combined Factor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for yt in b.get('year_table', []) %}
+          <tr>
+            <td><strong>{{ yt.label }}</strong></td>
+            <td class="right">{{ yt.year }}</td>
+            <td class="right">{{ "%.2f"|format(yt.pop_growth*100) }}%</td>
+            <td class="right">{{ "%.2f"|format(yt.gdp_growth*100) }}%</td>
+            <td class="right"><strong>{{ "%.2f"|format(yt.growth_factor*100) }}%</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const targets = {{ data.targets | tojson }};
+
+// Normalise keys to int
+const tgtNorm = {};
+Object.keys(targets).forEach(k => { tgtNorm[parseInt(k)] = targets[k]; });
+
+drawTargetTrajectory('chart-trajectory', tgtNorm);
+drawTargetWaterfall ('chart-waterfall',  tgtNorm);
+</script>
+{% endblock %}
